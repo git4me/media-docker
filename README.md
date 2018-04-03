@@ -1,3 +1,7 @@
+Cloned from https://github.com/joshuhn/media-docker
+
+Tweaked for my needs, start with https://github.com/joshuhn/media-docker
+
 # media-docker
 a short and sweet way to get a full-blown media stack running on a server in minutes. four files and sudo access are all you need to get started.
 
