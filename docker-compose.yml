@@ -4,14 +4,13 @@ services:
   ## Media Interfaces
   # Plex Server
   plex:
-    image: linuxserver/plex:latest
+    image: plexinc/pms-docker:beta
     container_name: plex
     hostname: plex
     volumes:
-      - ${BASE_DIR}/plex/config:/config
-      - ${MEDIA_DIR}/TV:/data/tv
-      - ${MEDIA_DIR}/Movies:/data/movies
-      - ${MEDIA_DIR}/Music:/data/music
+      - ${BASE_DIR}/plex:/config
+      - ${BASE_DIR}/plex/transcode:/transcode
+      - ${MEDIA_DIR}:/data/ALL
     environment:
       - PUID=1000
       - PGID=1000
@@ -38,15 +37,40 @@ services:
       - 32413:32413/udp
       - 32414:32414/udp
     restart: always
-  
+
+# airsonic
+  airsonic:
+    image: linuxserver/airsonic
+    container_name: airsonic
+    volumes:
+      - ${BASE_DIR}/airsonic:/config
+      - ${MEDIA_DIR}/Music:/music
+      - ${MEDIA_DIR}/Music/Playlists:/playlists
+      - ${MEDIA_DIR}/Music/Podcasts:/podcasts
+    ports:
+      - 4040:4040
+    networks:
+      - internal
+      - proxied
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    labels:
+      - traefik.backend=airsonic
+      - traefik.frontend.rule=Host:airsonic.${DOMAIN}
+      - traefik.docker.network=proxied
+      - traefik.port=4040
+    restart: always
+    
   # Ubooquity
   ubooquity:
     image: linuxserver/ubooquity:latest
     container_name: ubooquity
     volumes:
-      - ${BASE_DIR}/ubooquity/config:/config
-      - ${MEDIA_DIR}/Books:/books
-      - ${MEDIA_DIR}/Comics:/comics
+      - ${BASE_DIR}/ubooquity:/config
+      - ${MEDIA_DIR}/Print Media/Books:/books
+      - ${MEDIA_DIR}/Print Media/Comics:/comics
     environment:
       - PUID=1000
       - PGID=1000
@@ -71,20 +95,20 @@ services:
   ## /Media Interfaces
 
   ## Downloaders
-  # sabNZBd
-  sabnzbd:
-    image: linuxserver/sabnzbd:latest
-    container_name: sabnzbd
+  # nzbget
+  nzbget:
+    image: linuxserver/nzbget:latest
+    container_name: nzbget
     volumes:
-      - ${BASE_DIR}/sabnzbd/config:/config
+      - ${BASE_DIR}/nzbget:/config
       - ${DOWNLOAD_DIR}:/downloads
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=${TIMEZONE}
     labels:
-      - traefik.backend=sabnzbd
-      - traefik.frontend.rule=Host:sab.${DOMAIN}
+      - traefik.backend=nzbget
+      - traefik.frontend.rule=Host:nzbget.${DOMAIN}
       - traefik.docker.network=proxied
       - traefik.port=8080
     networks:
@@ -96,10 +120,10 @@ services:
 
 # NZBHydra
   hydra:
-    image: linuxserver/hydra:latest
+    image: linuxserver/hydra2:latest
     container_name: hydra
     volumes:
-      - ${BASE_DIR}/hydra/config:/config
+      - ${BASE_DIR}/hydra:/config
       - ${BASE_DIR}/hydra/blackhole:/downloads
     environment:
       - PUID=1000
@@ -121,8 +145,8 @@ services:
     image: linuxserver/jackett:latest
     container_name: jackett
     volumes:
-      - ${BASE_DIR}/jackett/config:/config
-      - ${BASE_DIR}/jackett/blackhole:/downloads
+      - ${BASE_DIR}/jackett:/config
+      - ${MEDIA_DIR}:/downloads
       - /etc/localtime:/etc/localtime:ro
     environment:
       - PUID=1000
@@ -147,7 +171,7 @@ services:
     image: linuxserver/sonarr:latest
     container_name: sonarr
     volumes: 
-      - ${BASE_DIR}/sonarr/config:/config
+      - ${BASE_DIR}/sonarr:/config
       - ${MEDIA_DIR}/TV:/tv
       - ${DOWNLOAD_DIR}:/downloads
     environment:
@@ -171,7 +195,7 @@ services:
     image: linuxserver/radarr:latest
     container_name: radarr
     volumes:
-      - ${BASE_DIR}/radarr/config:/config
+      - ${BASE_DIR}/radarr:/config
       - ${MEDIA_DIR}/Movies:/movies
       - ${DOWNLOAD_DIR}:/downloads
     environment:
@@ -195,7 +219,7 @@ services:
     image: linuxserver/lidarr:latest
     container_name: lidarr
     volumes:
-      - ${BASE_DIR}/lidarr/config:/config
+      - ${BASE_DIR}/lidarr:/config
       - ${MEDIA_DIR}/Music:/music
       - ${DOWNLOAD_DIR}:/downloads
     environment:
@@ -218,8 +242,8 @@ services:
     image: linuxserver/lazylibrarian:latest
     container_name: lazylibrarian
     volumes:
-      - ${BASE_DIR}/lazylibrarian/config:/config
-      - ${MEDIA_DIR}/Books:/books
+      - ${BASE_DIR}/lazylibrarian:/config
+      - ${MEDIA_DIR}/Print Media/Books:/books
       - ${DOWNLOAD_DIR}:/downloads
     environment:
       - PUID=1000
@@ -242,8 +266,8 @@ services:
     image: linuxserver/mylar:latest
     container_name: mylar
     volumes:
-      - ${BASE_DIR}/mylar/config:/config
-      - ${MEDIA_DIR}/Comics:/comics
+      - ${BASE_DIR}/mylar:/config
+      - ${MEDIA_DIR}/Print Media/Comics:/comics
       - ${DOWNLOAD_DIR}:/downloads
     environment:
       - PUID=1000
@@ -268,7 +292,7 @@ services:
     image: linuxserver/heimdall:latest
     container_name: heimdall
     volumes:
-      - ${BASE_DIR}/heimdall/config:/config
+      - ${BASE_DIR}/heimdall:/config
     environment:
       - PUID=1000
       - PGID=1000
@@ -285,13 +309,119 @@ services:
       - 443
     restart: always
 
+    #  ddclient
+  ddclient:
+    image: linuxserver/ddclient
+    container_name: ddclient
+    volumes:
+      - ${BASE_DIR}/ddclient:/config
+    networks:
+      - proxied
+      - internal
+    restart: always
+
+# Wordpress    
+  wpdb:
+    image: mariadb
+    container_name: wpdb
+    ports:
+      - "8081:3306"
+    networks:
+      - internal
+      - proxied
+    environment:
+      - MYSQL_ROOT_PASSWORD=ChangeMeIfYouWant
+
+  wordpress:
+    image: wordpress
+    container_name: wordpress
+    volumes:
+      - ${BASE_DIR}/wordpress:/var/www/html
+    labels:
+      - traefik.backend=wordpress
+      - traefik.frontend.rule=Host:www.${DOMAIN}
+      - traefik.docker.network=proxied
+      - traefik.port=2368
+    networks:
+      - internal
+      - proxied
+    expose:
+      - 2368
+    links:
+      - wpdb:mysql
+    environment:
+      - WORDPRESS_DB_PASSWORD=ChangeMeIfYouWant
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    restart: always
+  #wordpress end
+  
+# TT-RSS
+  tt-rss:
+    image: linuxserver/tt-rss
+    container_name: tt-rss
+    links:
+      - database:ttrss-database
+    labels:
+      - traefik.backend=tt-rss
+      - traefik.frontend.rule=Host:feeds.${DOMAIN}
+      - traefik.docker.network=proxied
+      - traefik.port=80
+    networks:
+      - internal
+      - proxied    
+    volumes:
+      - ${BASE_DIR}/ttrss:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    restart: always
+    ports:
+      - 4242:80
+     
+  ttrss-database:
+    image: postgres:9.6.5-alpine
+    container_name: ttrss-database
+    environment:
+      - POSTGRES_PASSWORD=tardis
+      - POSTGRES_USER=tom42
+      - POSTGRES_DB=test
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /etc/passwd:/etc/passwd:ro
+      - ${BASE_DIR}/postgresql/var/lib/postgresql/data:/var/lib/postgresql/data
+    networks:
+      - internal
+      - proxied        
+    ports:
+      - 5432:5432
+    restart: always
+# TT-RSS end
+
+#samba
+  samba:
+    image: tom42/nrobinaubertin_samba
+    container_name: samba
+    volumes:
+      - /:/shared
+    networks:
+      - internal
+      - proxied
+    ports:
+      - 137-139:7137-7139
+      - 445:7445
+    restart: always
+
   # Tautulli
   tautulli:
     image: tautulli/tautulli:latest
     container_name: tautulli
     volumes:
-      - ${BASE_DIR}/tautulli/config:/config
-      - ${BASE_DIR}/plex/config/Library/Application\ Support/Plex\ Media\ Server/Logs:/logs:ro
+      - ${BASE_DIR}/tautulli:/config
+      - ${BASE_DIR}/plex/Library/Application\ Support/Plex\ Media\ Server/Logs:/logs:ro
     environment:
       - PUID=1000
       - PGID=1000
@@ -310,12 +440,51 @@ services:
       - plex    
     restart: always
 
+#pastebin
+    pastebin:
+        image: mkodockx/docker-pastebin
+        container_name: pastebin
+        volumes:
+            - /home/tom42/docker/configs/pastebin:/config
+            - /etc/localtime:/etc/localtime:ro
+        ports:
+            - 15000:80
+        env_file: uidgid.env
+        environment:
+            - VIRTUAL_HOST=pastebin.tom42.pw
+            - VIRTUAL_PORT=15000
+        restart: always
+    
+    
+    
+#rss-bridge
+  rss-bridge:
+    image: tom42/rss-bridge
+    container_name: rss-bridge
+    volumes:
+      - ${BASE_DIR}/rss-bridge/whitelist.txt:/var/www/html/whitelist.txt:rw
+    ports:
+      - 4280:80
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=${TIMEZONE}
+    labels:
+      - traefik.backend=rss-bridge
+      - traefik.frontend.rule=Host:rss.${DOMAIN}
+      - traefik.docker.network=proxied
+      - traefik.port=4280
+    networks:
+      - proxied
+      - internal
+    restart: always
+    
   # Ombi
   ombi:
     image: linuxserver/ombi:latest
     container_name: ombi
     volumes:
-      - ${BASE_DIR}/ombi/config:/config
+      - ${BASE_DIR}/ombi:/config
     environment:
       - PUID=1000
       - PGID=1000
@@ -335,54 +504,43 @@ services:
     restart: always
   ## /Helper Apps
 
-  ## Torrenting over VPN
-  # Transmission - OpenVPN
+  ## Torrenting
+  # Transmission
   transmission:
     image: haugene/transmission-openvpn:latest
     container_name: transmission
     volumes:
-      - ${BASE_DIR}/transmission:/data
-      - ${DOWNLOAD_DIR}/complete:/data/completed
-      - ${DOWNLOAD_DIR}/incomplete:/data/incomplete
+      - ${BASE_DIR}/transmission:/config
+      - ${DOWNLOAD_DIR}/torrents:/downloads
+      - /media/HDD2/Downloads/torrents:/downloads-hdd2
+      - ${DOWNLOAD_DIR}/torrents/watch:/watch
+
       - /etc/localtime:/etc/localtime:ro
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=${TIMEZONE}
-      - OPENVPN_PROVIDER=${VPN_PROVIDER}
-      - OPENVPN_USERNAME=${VPN_USER}
-      - OPENVPN_PASSWORD=${VPN_PASS}
-      - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
-      - TRANSMISSION_RPC_HOST_WHITELIST=*.${DOMAIN}
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun
     networks:
-      - vpn
+      - proxied
+      - internal
     expose:
       - 9091
     restart: always
-
-  vpn_proxy:
-    image: haugene/transmission-openvpn-proxy:latest
-    container_name: vpn_proxy
-    depends_on:
-      - transmission
-    links:
-      - transmission:transmission
-    labels:
-      - traefik.backend=vpn_proxy
-      - traefik.frontend.rule=Host:transmission.${DOMAIN}
-      - traefik.docker.network=proxied
-      - traefik.port=8080
+   # transmission-rss
+   transmission-rss:
+    image: nning2/transmission-rss
+    container_name: transmission-rss
+    volumes:
+      - ${BASE_DIR}/transmission/transmission-rss.conf:/etc/transmission-rss.conf
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=${TIMEZONE}
     networks:
-      - vpn
       - proxied
-    expose:
-      - 8080
-    restart: always
-  ## /Torrenting over VPN
+      - internal
+    restart: always   
+  ## /Torrenting
   
   ## Traefik Proxy
   # Traefik
@@ -424,7 +582,6 @@ services:
 
 # Networking config
 networks:
-  vpn:
   internal:
     external: false
   proxied:
