@@ -362,7 +362,7 @@ services:
     image: linuxserver/tt-rss
     container_name: tt-rss
     links:
-      - database:ttrss-database
+      - ttrssdatabase:ttrss-database
     labels:
       - traefik.backend=tt-rss
       - traefik.frontend.rule=Host:feeds.${DOMAIN}
@@ -381,7 +381,7 @@ services:
     ports:
       - 4242:80
      
-  ttrss-database:
+  ttrssdatabase:
     image: postgres:9.6.5-alpine
     container_name: ttrss-database
     environment:
@@ -441,22 +441,30 @@ services:
     restart: always
 
 #pastebin
-    pastebin:
-        image: mkodockx/docker-pastebin
-        container_name: pastebin
-        volumes:
-            - /home/tom42/docker/configs/pastebin:/config
-            - /etc/localtime:/etc/localtime:ro
-        ports:
-            - 15000:80
-        env_file: uidgid.env
-        environment:
-            - VIRTUAL_HOST=pastebin.tom42.pw
-            - VIRTUAL_PORT=15000
-        restart: always
-    
-    
-    
+  pastebin:
+    image: mkodockx/docker-pastebin
+    container_name: pastebin
+    volumes:
+      - /home/tom42/docker/configs/pastebin:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 15000:80
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE}
+    labels:
+      - traefik.backend=pastebin
+      - traefik.frontend.rule=Host:pastebin.${DOMAIN}
+      - traefik.docker.network=proxied
+      - traefik.port=15000
+    networks:
+      - proxied
+      - internal
+    expose:
+      - 8181
+    restart: always
+
 #rss-bridge
   rss-bridge:
     image: tom42/rss-bridge
@@ -527,7 +535,7 @@ services:
       - 9091
     restart: always
    # transmission-rss
-   transmission-rss:
+  transmission-rss:
     image: nning2/transmission-rss
     container_name: transmission-rss
     volumes:
