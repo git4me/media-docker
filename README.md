@@ -33,7 +33,7 @@ installation is omega-easy!
 
 1. have an Ubuntu machine available
 2. be root
-3. run `sudo git clone https://github.com/joshuhn/media-docker/ /media-docker/ && cd /media-docker/`
+3. run `sudo git clone https://github.com/go2tom42/media-docker/ /media-docker/ && cd /media-docker/`
 4. open `.env` in your favorite text editor and set the variables it contains
 5. make sure that the script is executable (`chmod +x ./deploy.sh`) and run `./deploy.sh`
 6. wait a few minutes, watch the color-coded status messages scroll by
